@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AsHuzaifa / Minor Works</title>
+<meta name="description" content="An index of small builds by Mohammed Huzaifa. IoT, embedded, and the offcuts too little for their own repository.">
+<meta name="theme-color" content="#000000">
+
+<meta property="og:title" content="AsHuzaifa / Minor Works">
+<meta property="og:description" content="Everything too small for its own repository, and too good to lose.">
+<meta property="og:type" content="website">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+
+<!-- restore the beacon state before first paint so the grid never flashes -->
+<script>try{if(localStorage.getItem('ashuzaifa.sig')==='off')document.documentElement.classList.add('sig-off')}catch(e){}</script>
+</head>
+
+<body>
+
+<div class="grid-overlay" aria-hidden="true"></div>
+
+<header class="hdr" id="hdr">
+  <a class="mark" href="index.html">
+    <span class="mark__name">AsHuzaifa</span>
+    <span class="mark__desc">Minor Works &amp; Field Notes</span>
+  </a>
+
+  <nav class="nav">
+    <a href="#about">about</a>
+    <a href="#index">index</a>
+    <a href="#contact">contact</a>
+
+    <!-- beacon: signal indicator, doubles as the wireframe-grid toggle -->
+    <button class="beacon" id="beacon" type="button" aria-pressed="true" title="Toggle the wireframe grid">
+      <svg viewBox="0 0 14 14" aria-hidden="true">
+        <circle class="core" cx="2" cy="12" r="1.6"/>
+        <path class="arc" d="M2 8.2A3.8 3.8 0 0 1 5.8 12"/>
+        <path class="arc" d="M2 5A7 7 0 0 1 9 12"/>
+        <path class="arc" d="M2 1.8A10.2 10.2 0 0 1 12.2 12"/>
+      </svg>
+      <span class="beacon__label">sig&nbsp;/&nbsp;</span>
+    </button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- 00 · HERO -->
+  <section class="hero" id="top">
+    <canvas class="hero__canvas" id="hero-canvas" aria-hidden="true"></canvas>
+
+
+    <div class="hero__inner">
+      <p class="eyebrow" style="margin:0 0 18px">/00 index of minor works</p>
+
+      <h1>
+        <span class="ln"><span>Minor</span></span>
+        <span class="ln"><span>Works</span></span>
+      </h1>
+
+      <div class="hero__foot">
+        <p class="hero__tag">
+          Everything too small for its own repository, and too good to lose.
+          Sensors, scripts, circuits, and the notes that came with them.
+        </p>
+        <p class="hero__meta">
+          Mohammed Huzaifa<br>
+          IoT &amp; Embedded / <span id="proj-count">0</span> entries
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 · ABOUT -->
+  <section class="sec" id="about">
+    <div class="sec__head">
+      <span class="sec__n">/01</span>
+      <h2 class="sec__title">What this is</h2>
+    </div>
+    <div class="about__body" id="about-body" data-reveal></div>
+  </section>
+
+  <!-- 02 · POSTERS -->
+  <section class="sec posters" id="posters" aria-label="Posters">
+    <div id="poster-list"></div>
+  </section>
+
+  <!-- 03 · INDEX -->
+  <section class="sec" id="index">
+    <div class="sec__head">
+      <span class="sec__n">/03</span>
+      <h2 class="sec__title">Index</h2>
+    </div>
+    <div class="index__grid" id="index-grid"></div>
+  </section>
+
+</main>
+
+<footer class="foot" id="contact">
+  <h2 class="foot__cta">Say<br>something</h2>
+  <div class="links" id="contact-links"></div>
+  <div class="foot__base">
+    <span>© <span id="year">2026</span> Mohammed Huzaifa</span>
+    <a href="#top">back to top ↑</a>
+  </div>
+</footer>
+
+<div class="readout" id="readout" aria-hidden="true">
+  <span id="readout-sec">00 / hero</span>
+  <span class="readout__bar"><i id="readout-bar"></i></span>
+  <span id="readout-pct">000%</span>
+</div>
+
+<script type="module" src="assets/js/main.js"></script>
+</body>
+</html>

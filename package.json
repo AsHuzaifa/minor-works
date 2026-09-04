@@ -1,0 +1,10 @@
+{
+  "name": "minor-works",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AsHuzaifa, an index of minor works. Static site, no build step.",
+  "scripts": {
+    "dev": "npx --yes serve . -l 5173",
+    "start": "npx --yes serve . -l 5173"
+  }
+}

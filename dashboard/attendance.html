@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance Console / Smart Attendance Register System</title>
+<meta name="description" content="The teacher-facing console for the Smart Attendance Register System: a face recognition register with a live match threshold, a decision tape, and a roll you can export.">
+<meta name="theme-color" content="#670627">
+
+<meta property="og:title" content="Attendance Console / Smart Attendance Register System">
+<meta property="og:description" content="A rebuilt face recognition attendance console. Drag the threshold and watch the register break in both directions.">
+<meta property="og:type" content="article">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="attendance.css">
+</head>
+
+<body>
+
+<div class="chassis">
+  <span class="screw screw--tl" aria-hidden="true"></span>
+  <span class="screw screw--tr" aria-hidden="true"></span>
+  <span class="screw screw--bl" aria-hidden="true"></span>
+  <span class="screw screw--br" aria-hidden="true"></span>
+
+  <!-- ---- nameplate ------------------------------------------------------ -->
+  <header class="nameplate">
+    <span class="badge" aria-hidden="true">SA</span>
+
+    <a class="nameplate__id" href="../project.html?id=smart-attendance-register">
+      <b>Smart Attendance Register</b>
+      <i>Face recognition console &middot; back to the write-up</i>
+    </a>
+
+    <span class="lamp-set" id="session-pill" data-state="idle">
+      <span class="lamp" aria-hidden="true"></span><span id="session-state">idle</span>
+    </span>
+
+    <button class="btn btn--go" id="btn-run" type="button">Start session</button>
+    <button class="btn" id="btn-end" type="button" disabled>Close roll</button>
+
+    <span class="serial" aria-hidden="true">MDL. SAR-512 / SIH 2024</span>
+  </header>
+
+  <!-- ---- deck one: apparatus and ledger --------------------------------- -->
+  <div class="deck">
+
+    <div class="plate apparatus">
+
+      <!-- job card -->
+      <section>
+        <div class="cap">
+          <h2>Job</h2>
+          <p>what the machine is set for</p>
+        </div>
+        <dl class="readout well">
+          <div>
+            <dt><label for="class-select">Class</label></dt>
+            <dd><select id="class-select" style="font:inherit;color:inherit;background:none;border:0;padding:0;width:100%;cursor:pointer"></select></dd>
+          </div>
+          <div>
+            <dt>Sitting</dt>
+            <dd><output id="session-date">--</output></dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- counter -->
+      <section class="counter well">
+        <p class="counter__label">Present, this sitting</p>
+        <div class="flaps" id="hero-flaps" role="img" aria-label="Attendance counter">
+          <span class="flap">0</span><span class="flap">0</span><span class="flap">0</span>
+          <span class="flap flap--unit" aria-hidden="true">%</span>
+        </div>
+        <p class="counter__sub" id="hero-sub">Roll not started</p>
+
+        <div class="gauge well" id="meter" role="img" aria-label="Attendance meter">
+          <div class="gauge__fill" id="meter-fill" style="width:0%"></div>
+          <span class="gauge__ticks" aria-hidden="true"></span>
+        </div>
+        <ul class="key">
+          <li><span class="chip" style="background:var(--matcha)" aria-hidden="true"></span>Marked present</li>
+          <li><span class="chip" style="background:#cec3ae" aria-hidden="true"></span>Not yet seen</li>
+        </ul>
+      </section>
+
+      <!-- viewfinder -->
+      <figure class="viewfinder well" style="margin:0">
+        <div class="cap" style="margin-bottom:10px">
+          <h2>Viewfinder</h2>
+          <p>frames in, faces out</p>
+        </div>
+
+        <div class="glass">
+          <canvas id="feed" width="960" height="600" aria-label="Simulated camera view with detection boxes drawn over it"></canvas>
+          <span class="glass__etch">cam 01 &middot; simulated</span>
+        </div>
+
+        <dl class="readout">
+          <div><dt>Frame</dt><dd id="ro-frame">0</dd></div>
+          <div><dt>Fps</dt><dd id="ro-fps">0</dd></div>
+          <div><dt>Faces</dt><dd id="ro-faces">0</dd></div>
+          <div><dt>Matched</dt><dd id="ro-hit">0</dd></div>
+          <div><dt>Rejected</dt><dd id="ro-miss">0</dd></div>
+        </dl>
+
+        <div class="viewfinder__ctrl">
+          <button class="btn btn--sm" id="btn-step" type="button">Step one frame</button>
+          <button class="switch" id="btn-boxes" type="button" aria-pressed="true">
+            <span class="switch__track" aria-hidden="true"></span><span id="boxes-label">Overlay</span>
+          </button>
+        </div>
+      </figure>
+
+      <!-- gauge rack -->
+      <section>
+        <div class="cap">
+          <h2>Gauges</h2>
+          <p>where the sitting stands</p>
+        </div>
+        <dl class="rack-plates well" id="kpis"></dl>
+      </section>
+
+    </div>
+
+    <!-- ledger -->
+    <section class="sheet ledger" aria-labelledby="reg-h">
+      <span class="sheet__no" aria-hidden="true">form 2-B</span>
+      <div class="cap">
+        <h2 id="reg-h">The register</h2>
+        <p id="reg-count">nothing entered yet</p>
+      </div>
+
+      <div class="toolbar">
+        <input class="search" id="search" type="search" placeholder="Name or roll" aria-label="Search the register">
+        <div class="tabs" role="group" aria-label="Filter the register">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="present" aria-pressed="false">Present</button>
+          <button type="button" data-filter="absent" aria-pressed="false">Not seen</button>
+          <button type="button" data-filter="review" aria-pressed="false">Review</button>
+        </div>
+        <span class="spacer"></span>
+        <button class="btn btn--sm" id="btn-csv" type="button">Export CSV</button>
+        <button class="btn btn--sm" id="btn-json" type="button">Export JSON</button>
+      </div>
+
+      <div class="tbl-wrap">
+        <table id="register">
+          <caption style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">
+            Attendance register for the current sitting
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col"><button type="button" data-sort="roll">Roll</button></th>
+              <th scope="col"><button type="button" data-sort="name">Name</button></th>
+              <th scope="col"><button type="button" data-sort="status">Mark</button></th>
+              <th scope="col"><button type="button" data-sort="first">First seen</button></th>
+              <th scope="col"><button type="button" data-sort="last">Last seen</button></th>
+              <th scope="col"><button type="button" data-sort="hits">Sightings</button></th>
+              <th scope="col"><button type="button" data-sort="conf">Best match</button></th>
+              <th scope="col"><button type="button" data-sort="rate">Term</button></th>
+              <th scope="col"><span class="muted">By hand</span></th>
+            </tr>
+          </thead>
+          <tbody id="register-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ---- threshold bench ------------------------------------------------ -->
+  <section class="bench">
+    <div class="plate" style="padding:16px 18px 4px">
+      <div class="cap">
+        <h2>Threshold bench</h2>
+        <p>every decision in the system collapses into one number</p>
+      </div>
+
+      <div class="bench__grid">
+
+        <div class="dial">
+          <div class="dial__top">
+            <label for="thresh">Accept at or below a cosine distance of</label>
+            <output class="dial__val" id="thresh-val">0.52</output>
+          </div>
+
+          <div class="channel">
+            <input type="range" id="thresh" min="0.25" max="0.85" step="0.01" value="0.52" aria-describedby="thresh-help">
+            <div class="scale" aria-hidden="true">
+              <span>0.25</span><span>0.40</span><span>0.55</span><span>0.70</span><span>0.85</span>
+            </div>
+          </div>
+
+          <p class="aside" id="thresh-help">
+            Set it tight and half the room is marked absent because someone turned their head.
+            Set it loose and two siblings become the same person. There is no correct value here,
+            only a chosen tradeoff, and choosing it honestly means deciding in advance
+            <b>which failure you would rather explain</b>.
+          </p>
+          <p class="aside aside--verdict" id="thresh-verdict"></p>
+        </div>
+
+        <figure class="sheet sheet--graph sheet__pad" style="margin:0">
+          <ul class="legend">
+            <li><span class="chip" style="background:var(--mark-ok)" aria-hidden="true"></span>Same person</li>
+            <li><span class="chip" style="background:var(--mark-no)" aria-hidden="true"></span>Someone else</li>
+            <li><span class="key-line" style="background:var(--wine)" aria-hidden="true"></span>Threshold</li>
+          </ul>
+          <div id="fig-hist"></div>
+        </figure>
+
+        <dl class="tradeoff well">
+          <div><dt>Correctly let in</dt><b data-tone="ok" id="tr-tp">0</b></div>
+          <div><dt>Correctly kept out</dt><b id="tr-tn">0</b></div>
+          <div><dt>Wrongly kept out <span>false reject</span></dt><b data-tone="warn" id="tr-fr">0</b></div>
+          <div><dt>Wrongly let in <span>false accept</span></dt><b data-tone="no" id="tr-fa">0</b></div>
+        </dl>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- charts --------------------------------------------------------- -->
+  <div class="rack">
+
+    <figure class="sheet sheet--graph sheet__pad" style="margin:0" aria-labelledby="hist-h">
+      <span class="sheet__no" aria-hidden="true">plate i</span>
+      <div class="cap">
+        <h2 id="hist-h">Attendance across the term</h2>
+        <p>share of the roll marked present</p>
+      </div>
+      <div id="fig-history"></div>
+      <figcaption>
+        The dip in the middle of the term is the week the camera was moved to the back of the room.
+      </figcaption>
+    </figure>
+
+    <figure class="sheet sheet--graph sheet__pad" style="margin:0" aria-labelledby="stu-h">
+      <span class="sheet__no" aria-hidden="true">plate ii</span>
+      <div class="cap">
+        <h2 id="stu-h">Attendance rate by student</h2>
+        <p>across every recorded sitting</p>
+      </div>
+      <ul class="legend">
+        <li><span class="chip" style="background:var(--mark-ok)" aria-hidden="true"></span>At or above 75%</li>
+        <li><span class="chip" style="background:var(--mark-no)" aria-hidden="true"></span>Short on attendance</li>
+      </ul>
+      <div id="fig-students"></div>
+    </figure>
+
+  </div>
+
+  <!-- ---- deck two: tape and card drawer --------------------------------- -->
+  <div class="deck">
+
+    <section class="plate tape-housing" aria-labelledby="log-h">
+      <div class="cap">
+        <h2 id="log-h">Decision tape</h2>
+        <p>every call, in order</p>
+        <span class="spacer"></span>
+        <button class="btn btn--sm" id="btn-clear-log" type="button">Tear off</button>
+      </div>
+      <div class="tape" id="log" tabindex="0" aria-live="off">
+        <p class="tape__empty">Nothing printed yet. Start a sitting to fill the register.</p>
+      </div>
+    </section>
+
+    <section class="plate drawer" aria-labelledby="ros-h">
+      <div class="cap">
+        <h2 id="ros-h">Enrolment cards</h2>
+        <p>each student is enrolled once, from a handful of stills</p>
+        <span class="spacer"></span>
+        <button class="btn btn--sm" id="btn-enrol" type="button">Add a card</button>
+        <button class="btn btn--sm" id="btn-reset" type="button">Reset drawer</button>
+      </div>
+      <div class="cards" id="roster"></div>
+    </section>
+
+  </div>
+
+  <!-- ---- specification plate -------------------------------------------- -->
+  <section class="bench">
+    <dl class="specplate">
+      <div><dt>Detector</dt><dd>Haar cascade, frontal</dd></div>
+      <div><dt>Embedding</dt><dd>128-d, one per crop</dd></div>
+      <div><dt>Comparison</dt><dd>Cosine, nearest enrolled</dd></div>
+      <div><dt>Deduplication</dt><dd>One row per student per sitting</dd></div>
+      <div><dt>Store</dt><dd>SQLite, served by Flask</dd></div>
+      <div><dt>Input</dt><dd>One webcam at 640 x 400</dd></div>
+    </dl>
+  </section>
+
+  <!-- ---- footer --------------------------------------------------------- -->
+  <footer class="foot">
+    <span>Smart India Hackathon 2024</span>
+    <span>Top 20 of roughly 150 teams</span>
+    <span>No hardware beyond the camera</span>
+    <span class="spacer"></span>
+    <a href="../project.html?id=smart-attendance-register">Read the write-up</a>
+    <a href="../index.html">All minor works</a>
+
+    <p class="colophon">
+      A reconstruction. The original console was a Flask template reading a SQLite table
+      that an OpenCV loop wrote to, on one laptop in a hackathon hall. That HTML is lost, so
+      this rebuilds the same surface as a single static page: the matcher runs here in the
+      browser against a simulated room, drawing its distances from the two distributions the
+      real one produced. Every number on this page comes from that simulation and not from a
+      recorded class. The threshold, the deduplication rule, and the shape of the register
+      are the parts that were real.
+    </p>
+  </footer>
+
+</div>
+
+<div class="tip" id="tip" role="status" aria-live="off"></div>
+
+<script type="module" src="attendance.js"></script>
+</body>
+</html>

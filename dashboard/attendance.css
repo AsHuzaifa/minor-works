@@ -1,0 +1,1553 @@
+/* ===========================================================================
+   Smart Attendance Register System - console
+   Mulled Wine (#670627) + Matcha (#BAD797), light skeuomorphic
+
+   The metaphor is a registrar's apparatus: an enamelled steel chassis in the
+   department's wine livery, holding a viewfinder behind glass, a machined
+   threshold slider, a decision tape, and a ruled ledger that gets stamped.
+   Each material appears only where its metaphor is real. Screws sit on the
+   chassis and nowhere else. Perforations sit on the tape and nowhere else.
+   Stamps sit on paper and nowhere else. That restraint is the whole trick:
+   put a bevel on everything and it stops reading as anything.
+
+   Palette notes. On paper the brand hexes finally do real work. #670627 has
+   12:1 on the ledger and carries every heading. #BAD797 is 1.5:1, so it never
+   carries meaning: it is felt lining, label tape, and the live lamp.
+
+   Chart marks are stepped from the same two hues and validated on the ledger
+   surface (#FBF7EF):
+
+     present / genuine   #789949   L .640  C .114  H 128   3.1:1
+     absent / impostor   #A3003D   L .457  C .183  H  11   7.5:1
+     worst adjacent CVD  dE 17.7 (deutan) - normal vision dE 31.4
+
+   The enrolment pips use a four step matcha ramp, validated ordinal
+   (monotone L, adjacent dL >= .06, light end 2.25:1).
+   =========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- materials ---- */
+  --enamel-hi: #f7f2e8;
+  --enamel: #efe9de;
+  --enamel-lo: #e3dbcb;
+  --enamel-edge: #cfc4ae;
+
+  --paper: #fbf7ef;
+  --paper-edge: #e8e0cf;
+  --rule: #ded3e0;
+  --rule-margin: #d9a8b6;
+
+  --wine: #670627;
+  --wine-hi: #83133c;
+  --wine-lo: #4a021b;
+
+  --matcha: #bad797;
+  --matcha-hi: #d3e8b8;
+  --matcha-lo: #8fae6a;
+
+  --glass-lo: #12040a;
+
+  /* ---- ink ---- */
+  --ink: #241a1c;
+  --ink-2: #4a3a3e;
+  --ink-3: #7a6b6e;
+  --ink-faint: #a2969a;
+
+  /* ---- data marks ---- */
+  --mark-ok: #789949;
+  --mark-no: #a3003d;
+  --mark-warn: #b06a00;
+  /* the chart chrome and marks are written into the SVG by attendance.js, which
+     keeps one copy of each value rather than two that can drift apart:
+     grid #e5dcc9, axis #c9bda9, de-emphasis #c4b8a6 */
+
+  /* ---- ordinal matcha ramp, light to dark ---- */
+  --pip-1: #90b261;
+  --pip-2: #789949;
+  --pip-3: #618130;
+  --pip-4: #4a6914;
+
+  /* ---- type ---- */
+  --label: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ---- the three depth recipes, so nothing is invented ad hoc ---- */
+  --raise: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 -1px 0 rgba(88, 62, 44, 0.1) inset,
+           0 1px 1px rgba(74, 45, 30, 0.13), 0 10px 22px -14px rgba(74, 45, 30, 0.5);
+  --sink: 0 2px 6px rgba(60, 34, 22, 0.26) inset, 0 -1px 0 rgba(255, 255, 255, 0.7) inset;
+  --press: 0 1px 3px rgba(60, 34, 22, 0.3) inset, 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  --pad: clamp(14px, 2.2vw, 26px);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--label);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* the bench the apparatus sits on */
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(255, 255, 255, 0.7), transparent 60%),
+    repeating-linear-gradient(92deg, rgba(120, 88, 60, 0.035) 0 2px, transparent 2px 7px),
+    linear-gradient(170deg, #ded2c0 0%, #cdc0ab 55%, #c2b39c 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+canvas { display: block; }
+svg { display: block; }
+a { color: inherit; }
+
+::selection { background: var(--matcha); color: var(--ink); }
+
+:focus-visible {
+  outline: 2px solid var(--wine);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ===========================================================================
+   Material primitives
+   =========================================================================== */
+
+/* an enamelled plate, lit from above */
+.plate {
+  position: relative;
+  background: linear-gradient(178deg, var(--enamel-hi) 0%, var(--enamel) 46%, var(--enamel-lo) 100%);
+  border: 1px solid var(--enamel-edge);
+  border-radius: 5px;
+  box-shadow: var(--raise);
+}
+
+/* a recess milled into a plate */
+.well {
+  background: linear-gradient(180deg, #d8cdb9, #e6ddcc);
+  border: 1px solid var(--enamel-edge);
+  border-radius: 4px;
+  box-shadow: var(--sink);
+}
+
+/* text cut into metal: dark ink with a highlight catching the lower lip */
+.engrave {
+  color: var(--ink-2);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.engrave--faint { color: var(--ink-3); }
+
+/* ---- the chassis --------------------------------------------------------- */
+
+.chassis {
+  position: relative;
+  max-width: 1460px;
+  margin: clamp(14px, 3vw, 40px) auto;
+  padding: 0 0 var(--pad);
+  background: linear-gradient(176deg, #f4eee3 0%, #ece5d8 40%, #ded4c1 100%);
+  border: 1px solid #b9ab93;
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 -2px 0 rgba(110, 82, 58, 0.14) inset,
+    0 2px 3px rgba(70, 46, 28, 0.2),
+    0 34px 60px -30px rgba(60, 38, 22, 0.7);
+}
+
+/* the four screws that hold the chassis to the bench, and nothing else */
+.screw {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background:
+    linear-gradient(145deg, #f3ecdf, #b4a68e);
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.8),
+    0 1px 2px rgba(60, 38, 22, 0.4),
+    0 0 0 1px rgba(120, 96, 66, 0.35) inset;
+  z-index: 3;
+}
+
+.screw::after {
+  content: '';
+  position: absolute;
+  inset: 3px 2px;
+  border-top: 1.5px solid rgba(78, 56, 34, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.65);
+  transform: rotate(var(--turn, 24deg));
+  transform-origin: center;
+  height: 0;
+  top: 50%;
+}
+
+.screw--tl { top: 11px; left: 11px; --turn: 28deg; }
+.screw--tr { top: 11px; right: 11px; --turn: -12deg; }
+.screw--bl { bottom: 11px; left: 11px; --turn: 66deg; }
+.screw--br { bottom: 11px; right: 11px; --turn: 8deg; }
+
+/* ===========================================================================
+   Nameplate
+   =========================================================================== */
+
+.nameplate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0 0 var(--pad);
+  padding: 13px calc(var(--pad) + 14px);
+  color: #f6ecef;
+  background:
+    linear-gradient(180deg, var(--wine-hi) 0%, var(--wine) 42%, var(--wine-lo) 100%);
+  border-radius: 9px 9px 0 0;
+  border-bottom: 1px solid #390115;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 -8px 16px -10px rgba(0, 0, 0, 0.6) inset,
+    0 2px 4px rgba(58, 24, 34, 0.35);
+}
+
+/* the brushed grain of a painted steel fascia */
+.nameplate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9px 9px 0 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0 1px,
+    rgba(0, 0, 0, 0.03) 1px 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+.nameplate > * { position: relative; }
+
+.badge {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f7f0e3;
+  background: linear-gradient(160deg, #7d1136, #430119);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 -1px 2px rgba(0, 0, 0, 0.5) inset,
+    0 1px 2px rgba(0, 0, 0, 0.35);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.nameplate__id { margin-right: auto; text-decoration: none; }
+
+.nameplate__id b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1.1;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.nameplate__id i {
+  display: block;
+  font-family: var(--label);
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: rgba(246, 236, 239, 0.62);
+  margin-top: 3px;
+}
+
+.nameplate__id:hover i { color: var(--matcha); }
+
+.serial {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: rgba(246, 236, 239, 0.4);
+  align-self: flex-end;
+}
+
+/* ---- lamp ---------------------------------------------------------------- */
+
+.lamp-set {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px 6px 9px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.24);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) inset, 0 1px 0 rgba(255, 255, 255, 0.15);
+  font-family: var(--label);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(246, 236, 239, 0.72);
+  white-space: nowrap;
+}
+
+.lamp {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #6c5f52, #2b241d 70%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) inset, 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+[data-state='running'] .lamp {
+  background: radial-gradient(circle at 34% 30%, #eaf7d4, var(--matcha) 42%, #6c8b46 100%);
+  box-shadow: 0 0 8px 1px rgba(186, 215, 151, 0.75), 0 1px 2px rgba(0, 0, 0, 0.4) inset;
+  animation: pulse 2.4s var(--ease) infinite;
+}
+
+[data-state='paused'] .lamp {
+  background: radial-gradient(circle at 34% 30%, #ffe0a8, #d79a2a 45%, #855c10 100%);
+  box-shadow: 0 0 7px 1px rgba(215, 154, 42, 0.6), 0 1px 2px rgba(0, 0, 0, 0.4) inset;
+}
+
+[data-state='closed'] .lamp {
+  background: radial-gradient(circle at 34% 30%, #ffb9c8, #d0325f 45%, #7a0b2c 100%);
+  box-shadow: 0 0 7px 1px rgba(208, 50, 95, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4) inset;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  55% { opacity: 0.62; }
+}
+
+/* ===========================================================================
+   Controls
+   =========================================================================== */
+
+.btn {
+  appearance: none;
+  font-family: var(--label);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  padding: 9px 15px;
+  border: 1px solid var(--enamel-edge);
+  border-radius: 4px;
+  background: linear-gradient(178deg, #fbf7ee, #e5ddcc);
+  box-shadow: var(--raise);
+  cursor: pointer;
+  transition: transform 0.08s var(--ease), box-shadow 0.08s var(--ease), background 0.18s var(--ease);
+}
+
+.btn:hover:not(:disabled) { background: linear-gradient(178deg, #fffdf7, #ece4d3); }
+
+/* a button that is actually pressed travels down into the plate */
+.btn:active:not(:disabled) {
+  box-shadow: var(--press);
+  transform: translateY(1px);
+  background: linear-gradient(178deg, #e6ddcb, #f2ece0);
+}
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+
+.btn--go {
+  color: #f7f0e3;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.45);
+  border-color: #3f0116;
+  background: linear-gradient(178deg, var(--wine-hi), var(--wine) 55%, var(--wine-lo));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 1px 2px rgba(58, 24, 34, 0.45),
+    0 8px 16px -10px rgba(58, 24, 34, 0.8);
+}
+
+.btn--go:hover:not(:disabled) { background: linear-gradient(178deg, #911641, var(--wine-hi) 55%, #560420); }
+
+.btn--sm { padding: 6px 10px; font-size: 9px; letter-spacing: 0.13em; }
+
+/* ---- toggle switch ------------------------------------------------------- */
+
+.switch {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid var(--enamel-edge);
+  border-radius: 20px;
+  background: linear-gradient(178deg, #f6f1e7, #e4dccb);
+  box-shadow: var(--raise);
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.switch__track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  flex: none;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #cbc0ab, #ded5c4);
+  box-shadow: var(--sink);
+  transition: background 0.2s var(--ease);
+}
+
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #fffdf7, #cfc3ad);
+  box-shadow: 0 1px 2px rgba(60, 38, 22, 0.45), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  transition: transform 0.2s var(--ease);
+}
+
+.switch[aria-pressed='true'] { color: var(--ink); }
+.switch[aria-pressed='true'] .switch__track { background: linear-gradient(180deg, #8fae6a, var(--matcha)); }
+.switch[aria-pressed='true'] .switch__track::after { transform: translateX(14px); }
+
+/* ===========================================================================
+   Layout: apparatus left, ledger right
+   =========================================================================== */
+
+.deck {
+  display: grid;
+  grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
+  gap: var(--pad);
+  padding: 0 var(--pad);
+  align-items: start;
+}
+
+.deck + .deck { margin-top: var(--pad); }
+
+.bench {
+  padding: 0 var(--pad);
+  margin-top: var(--pad);
+}
+
+.rack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: var(--pad);
+  padding: 0 var(--pad);
+  margin-top: var(--pad);
+  align-items: start;
+}
+
+.apparatus {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+/* ---- a section header cut into the plate --------------------------------- */
+
+.cap {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(120, 96, 66, 0.22);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.cap h2 {
+  margin: 0;
+  font-family: var(--label);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--wine);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.cap p {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.cap .spacer { margin-left: auto; }
+
+/* ===========================================================================
+   The counter
+   =========================================================================== */
+
+.counter {
+  padding: 15px 16px 14px;
+}
+
+.counter__label {
+  margin: 0 0 9px;
+  font-family: var(--label);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.flaps {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+/* each digit is a split flap: a dark drum with a seam across its middle */
+.flap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0 12px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: clamp(34px, 5.6vw, 48px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #f8f1e6;
+  background: linear-gradient(180deg, #3a2a2e 0%, #241a1c 49%, #1a1214 51%, #2e2124 100%);
+  border-radius: 4px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    0 2px 5px rgba(50, 30, 22, 0.45) inset,
+    0 1px 2px rgba(60, 38, 22, 0.4);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.7);
+}
+
+.flap::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.09);
+}
+
+.flap--unit {
+  flex: 0 0 auto;
+  padding-left: 9px;
+  padding-right: 9px;
+  font-size: clamp(17px, 2.6vw, 22px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 15px;
+  color: var(--matcha);
+}
+
+.counter__sub {
+  margin: 11px 0 0;
+  font-family: var(--serif);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* ---- the meter, with engraved ticks -------------------------------------- */
+
+.gauge {
+  position: relative;
+  height: 13px;
+  margin-top: 11px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gauge__fill {
+  height: 100%;
+  border-radius: 2px 0 0 2px;
+  background: linear-gradient(180deg, var(--matcha-hi), var(--matcha) 55%, var(--matcha-lo));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset, 1px 0 0 rgba(60, 38, 22, 0.3);
+  transition: width 0.55s var(--ease);
+}
+
+/* Sits above the fill so the milled recess still reads once the bar is full,
+   and carries the ten percent ticks in the same layer. */
+.gauge__ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(60, 34, 22, 0.32) inset;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(10% - 1px),
+    rgba(60, 38, 22, 0.28) calc(10% - 1px) 10%
+  );
+}
+
+.key {
+  list-style: none;
+  display: flex;
+  gap: 16px;
+  margin: 9px 0 0;
+  padding: 0;
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.key li { display: flex; align-items: center; gap: 6px; }
+
+.chip {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 2px;
+  display: inline-block;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px rgba(60, 38, 22, 0.2) inset;
+}
+
+/* ===========================================================================
+   Viewfinder
+   =========================================================================== */
+
+.viewfinder {
+  position: relative;
+  padding: 11px;
+}
+
+.glass {
+  position: relative;
+  border-radius: 3px;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--glass-lo);
+  box-shadow:
+    0 0 0 1px #3a2a2e,
+    0 3px 9px rgba(30, 12, 18, 0.6) inset,
+    0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.glass canvas { width: 100%; height: 100%; }
+
+/* the sheet of glass over the tube: one soft diagonal reflection, nothing more */
+.glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    128deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.05) 26%,
+    transparent 44%
+  );
+}
+
+.glass__etch {
+  position: absolute;
+  left: 9px;
+  bottom: 8px;
+  z-index: 2;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(186, 215, 151, 0.5);
+}
+
+/* ---- engraved readout strip ---------------------------------------------- */
+
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 11px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.readout div {
+  flex: 1 1 auto;
+  min-width: 62px;
+  padding: 7px 9px;
+  border-right: 1px solid rgba(120, 96, 66, 0.18);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.readout div:last-child { border-right: 0; box-shadow: none; }
+
+.readout dt {
+  font-family: var(--label);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.readout dd {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.viewfinder__ctrl {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 11px;
+}
+
+/* ===========================================================================
+   Gauge plates (the KPI rack)
+   =========================================================================== */
+
+.rack-plates { padding: 4px 0 0; }
+
+.meterplate {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(120, 96, 66, 0.16);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.meterplate:last-child { border-bottom: 0; box-shadow: none; }
+
+.meterplate__label {
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.meterplate__note {
+  display: block;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+  margin-top: 1px;
+}
+
+.meterplate__val {
+  font-family: var(--mono);
+  font-size: 19px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  justify-self: end;
+}
+
+/* the recorder trace runs the full width of its gauge, under the number */
+.meterplate__spark { grid-column: 1 / -1; width: 100%; height: 26px; margin-top: 5px; }
+
+/* ===========================================================================
+   Paper
+   =========================================================================== */
+
+.sheet {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--paper-edge);
+  border-radius: 3px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(74, 45, 30, 0.16),
+    0 14px 26px -18px rgba(74, 45, 30, 0.55);
+}
+
+/* faint squared paper, low enough that a chart's own grid still wins */
+.sheet--graph::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(0deg, rgba(103, 6, 39, 0.05) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, rgba(103, 6, 39, 0.05) 0 1px, transparent 1px 22px);
+}
+
+.sheet > * { position: relative; }
+
+.sheet__pad { padding: 16px 20px 18px; }
+
+/* the ledger: ruled lines and a margin rule down the left */
+.ledger {
+  position: relative;
+  padding: 18px 20px 20px 26px;
+}
+
+.ledger::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 16px;
+  width: 1px;
+  background: var(--rule-margin);
+  opacity: 0.75;
+}
+
+.sheet__no {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ===========================================================================
+   Register table
+   =========================================================================== */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.toolbar .spacer { margin-left: auto; }
+
+.search {
+  appearance: none;
+  width: 176px;
+  padding: 8px 11px;
+  border: 1px solid var(--enamel-edge);
+  border-radius: 4px;
+  background: #fffdf8;
+  box-shadow: var(--sink);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.search::placeholder { color: var(--ink-faint); }
+
+.tabs {
+  display: inline-flex;
+  border-radius: 4px;
+  box-shadow: var(--raise);
+  border: 1px solid var(--enamel-edge);
+  overflow: hidden;
+}
+
+.tabs button {
+  appearance: none;
+  border: 0;
+  border-right: 1px solid var(--enamel-edge);
+  background: linear-gradient(178deg, #f8f3ea, #e6dece);
+  color: var(--ink-3);
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  padding: 8px 13px;
+  cursor: pointer;
+}
+
+.tabs button:last-child { border-right: 0; }
+.tabs button:hover { color: var(--ink); }
+
+/* the selected tab is pushed in, not painted a different colour */
+.tabs button[aria-pressed='true'] {
+  color: var(--wine);
+  background: linear-gradient(178deg, #e0d7c5, #efe8da);
+  box-shadow: var(--press);
+}
+
+.tbl-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+thead th {
+  text-align: left;
+  padding: 0 12px 8px 0;
+  border-bottom: 1.5px solid var(--wine);
+  white-space: nowrap;
+  font-family: var(--label);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--wine);
+}
+
+thead th button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+thead th button:hover { text-decoration: underline; text-underline-offset: 3px; }
+thead th[aria-sort] button::after { content: ' \25BE'; }
+thead th[aria-sort='descending'] button::after { content: ' \25B4'; }
+
+tbody td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+tbody tr:hover td { background: rgba(103, 6, 39, 0.035); }
+
+td.name { color: var(--ink); font-family: var(--serif); font-size: 14px; }
+td.num { font-variant-numeric: tabular-nums; }
+td.act { text-align: right; padding-right: 0; }
+
+/* ---- rubber stamps ------------------------------------------------------- */
+
+.stamp {
+  display: inline-block;
+  padding: 2px 8px 3px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  font-family: var(--label);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.88;
+  mix-blend-mode: multiply;
+}
+
+/* each stamp lands at its own angle, the way a hand does it */
+.stamp--present { color: var(--mark-ok); transform: rotate(-1.6deg); }
+.stamp--absent { color: var(--mark-no); transform: rotate(1.3deg); }
+.stamp--review { color: var(--mark-warn); transform: rotate(-0.8deg); border-style: dashed; }
+
+.stamp small {
+  display: inline;
+  font-size: 7.5px;
+  letter-spacing: 0.1em;
+  opacity: 0.75;
+}
+
+.flagnote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--mark-no);
+}
+
+/* ---- a printed confidence bar -------------------------------------------- */
+
+.conf { display: inline-flex; align-items: center; gap: 8px; }
+
+.conf__bar {
+  width: 50px;
+  height: 6px;
+  border-radius: 1px;
+  background: rgba(103, 6, 39, 0.1);
+  overflow: hidden;
+}
+
+.conf__bar i { display: block; height: 100%; background: var(--mark-ok); }
+
+.muted { color: var(--ink-faint); }
+
+.empty {
+  padding: 30px 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+
+/* ===========================================================================
+   Threshold bench
+   =========================================================================== */
+
+.bench__grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(210px, 250px);
+  gap: 24px;
+  align-items: start;
+  padding: 18px 20px 20px;
+}
+
+.dial__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dial__top label {
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  max-width: 190px;
+}
+
+.dial__val {
+  font-family: var(--mono);
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--wine);
+  padding: 2px 9px;
+  border-radius: 3px;
+  background: #fffdf8;
+  box-shadow: var(--sink);
+}
+
+/* the slider runs in a milled channel with an engraved scale beneath it */
+.channel {
+  position: relative;
+  padding: 9px 10px 6px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #ded5c4, #eee7d9);
+  box-shadow: var(--sink);
+}
+
+input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  margin: 0;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, var(--matcha-lo), var(--matcha)) 0 0 / var(--pct, 50%) 100% no-repeat,
+    linear-gradient(180deg, #b6a992, #cec3ae);
+  box-shadow: 0 2px 4px rgba(60, 34, 22, 0.35) inset;
+  cursor: pointer;
+}
+
+/* a knurled thumb: the ridges are the whole point of a thumb you can grip */
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 26px;
+  border-radius: 4px;
+  border: 1px solid #9b8d76;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.75) 0 1px, rgba(90, 66, 40, 0.22) 1px 3px),
+    linear-gradient(180deg, #fbf6ea, #c4b79e);
+  box-shadow: 0 1px 2px rgba(60, 38, 22, 0.5), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  cursor: grab;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #9b8d76;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.75) 0 1px, rgba(90, 66, 40, 0.22) 1px 3px),
+    linear-gradient(180deg, #fbf6ea, #c4b79e);
+  box-shadow: 0 1px 2px rgba(60, 38, 22, 0.5);
+  cursor: grab;
+}
+
+.scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  padding: 0 2px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: var(--ink-faint);
+}
+
+.scale span { position: relative; padding-top: 7px; }
+
+.scale span::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 4px;
+  background: rgba(60, 38, 22, 0.4);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.aside {
+  margin: 16px 0 0;
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--ink-2);
+}
+
+.aside b { font-weight: 500; color: var(--wine); }
+
+.aside--verdict {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-3);
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+/* ---- tradeoff gauges ----------------------------------------------------- */
+
+.tradeoff { margin: 0; }
+
+.tradeoff > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(120, 96, 66, 0.16);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.tradeoff > div:last-child { border-bottom: 0; box-shadow: none; }
+
+.tradeoff dt {
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.tradeoff dt span {
+  display: block;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+
+.tradeoff b {
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.tradeoff b[data-tone='ok'] { color: var(--mark-ok); }
+.tradeoff b[data-tone='no'] { color: var(--mark-no); }
+.tradeoff b[data-tone='warn'] { color: var(--mark-warn); }
+
+/* ===========================================================================
+   Charts
+   =========================================================================== */
+
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.legend li { display: flex; align-items: center; gap: 6px; }
+
+.legend .key-line { width: 15px; height: 2px; border-radius: 2px; flex: none; }
+
+.chart-svg { width: 100%; height: auto; overflow: visible; }
+
+.tick { font-family: var(--mono); font-size: 9px; fill: var(--ink-faint); }
+.tick--val { font-variant-numeric: tabular-nums; }
+
+.dlabel {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.annot { font-family: var(--mono); font-size: 9px; fill: var(--ink-3); }
+
+.hit { fill: transparent; cursor: crosshair; }
+
+figcaption {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* ===========================================================================
+   Decision tape
+   =========================================================================== */
+
+.tape-housing { padding: 14px 14px 16px; }
+
+/* the tape itself, with feed perforations punched down both edges */
+.tape {
+  position: relative;
+  height: 340px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 14px 10px 22px;
+  background:
+    radial-gradient(circle at 8px 50%, transparent 2.6px, #fdfaf3 2.9px) 0 0 / 16px 15px,
+    linear-gradient(#fdfaf3, #fdfaf3);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  box-shadow: 0 2px 5px rgba(74, 45, 30, 0.18) inset;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.75;
+  scrollbar-width: thin;
+  scrollbar-color: var(--enamel-edge) transparent;
+}
+
+.tape::-webkit-scrollbar { width: 8px; }
+.tape::-webkit-scrollbar-thumb { background: var(--enamel-edge); border-radius: 4px; }
+
+.ev {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 9px;
+  padding: 2px 0;
+  border-bottom: 1px dotted rgba(103, 6, 39, 0.14);
+}
+
+.ev__t { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.ev__m { color: var(--ink-2); word-break: break-word; }
+.ev__m b { font-weight: 600; color: var(--ink); }
+.ev--ok .ev__m em { font-style: normal; font-weight: 600; color: var(--mark-ok); }
+.ev--no .ev__m em { font-style: normal; font-weight: 600; color: var(--mark-no); }
+.ev--warn .ev__m em { font-style: normal; font-weight: 600; color: var(--mark-warn); }
+.ev--sys .ev__m { color: var(--ink-faint); }
+
+.tape__empty {
+  padding: 12px 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* ===========================================================================
+   Enrolment card drawer
+   =========================================================================== */
+
+.drawer { padding: 16px 18px 20px; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+  gap: 11px;
+}
+
+/* index cards: paper with one ruled line under the name and a coloured tab */
+.card {
+  position: relative;
+  padding: 10px 12px 11px;
+  background: linear-gradient(178deg, #fffdf7, #f7f1e5);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(74, 45, 30, 0.18);
+  min-width: 0;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: 13px;
+  width: 26px;
+  height: 4px;
+  border-radius: 0 0 2px 2px;
+  background: var(--wine);
+  opacity: 0.55;
+}
+
+.card__name {
+  font-family: var(--serif);
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.card__roll {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.pips { display: flex; gap: 3px; margin-top: 8px; }
+
+.pips i {
+  width: 100%;
+  height: 5px;
+  border-radius: 1px;
+  background: rgba(103, 6, 39, 0.1);
+}
+
+/* the pips are an ordinal ramp, so a fuller enrolment reads darker */
+.pips i[data-on='1'] { background: var(--pip-1); }
+.pips i:nth-child(3)[data-on='1'] { background: var(--pip-2); }
+.pips i:nth-child(4)[data-on='1'] { background: var(--pip-3); }
+.pips i:nth-child(5)[data-on='1'] { background: var(--pip-4); }
+
+.card__foot {
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* ---- specification plate ------------------------------------------------- */
+
+.specplate {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 3px 0;
+  border-radius: 5px;
+  background: linear-gradient(178deg, #efe4e6, #e2d3d6);
+  border: 1px solid #c9b3b8;
+  box-shadow: var(--raise);
+}
+
+.specplate > div {
+  padding: 10px 16px;
+  border-right: 1px solid rgba(103, 6, 39, 0.14);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.specplate > div:last-child { border-right: 0; box-shadow: none; }
+
+.specplate dt {
+  font-family: var(--label);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: #9a7a83;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.specplate dd {
+  margin: 3px 0 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--wine);
+}
+
+/* ===========================================================================
+   Tooltip
+   =========================================================================== */
+
+.tip {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -100%);
+  transition: opacity 0.11s linear;
+  background: #fffdf7;
+  border: 1px solid var(--enamel-edge);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 10px 22px -8px rgba(74, 45, 30, 0.6);
+}
+
+.tip[data-on='1'] { opacity: 1; }
+.tip b { color: var(--ink); font-weight: 600; }
+
+/* ===========================================================================
+   Footer plate
+   =========================================================================== */
+
+.foot {
+  margin: var(--pad) var(--pad) 0;
+  padding: 16px 20px 18px;
+  border-top: 1px solid rgba(120, 96, 66, 0.24);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.75);
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-family: var(--label);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.foot a { color: var(--wine); text-decoration: none; border-bottom: 1px solid rgba(103, 6, 39, 0.3); }
+.foot a:hover { border-bottom-color: var(--wine); }
+.foot .spacer { margin-left: auto; }
+
+.colophon {
+  flex-basis: 100%;
+  max-width: 74ch;
+  order: 9;
+  margin: 6px 0 0;
+  padding-top: 13px;
+  border-top: 1px solid rgba(120, 96, 66, 0.18);
+  font-family: var(--serif);
+  font-style: normal;
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.68;
+  color: var(--ink-2);
+  text-shadow: none;
+}
+
+/* ===========================================================================
+   Responsive
+   =========================================================================== */
+
+@media (max-width: 1180px) {
+  .bench__grid { grid-template-columns: minmax(0, 1fr) minmax(210px, 260px); }
+  .bench__grid .dial { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .deck { grid-template-columns: 1fr; }
+  .bench__grid { grid-template-columns: 1fr; }
+  .tape { height: 260px; }
+  .chassis { margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
+  .nameplate { border-radius: 0; }
+}
+
+@media (max-width: 560px) {
+  .screw { display: none; }
+  .flap { font-size: 38px; }
+  .search { width: 100%; }
+}
+
+/* ===========================================================================
+   Reduced motion, forced colors, print
+   =========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Forced colors throws away every gradient and shadow, which is exactly the
+   channel this design leans on. Put the borders back so structure survives. */
+@media (forced-colors: active) {
+  .plate, .well, .sheet, .card, .flap, .tape, .channel { border: 1px solid CanvasText; }
+  .stamp { border: 1.5px solid CanvasText; }
+  .screw, .glass::after { display: none; }
+  .chip, .key-line { forced-color-adjust: none; }
+}
+
+@media print {
+  body { background: #fff; }
+  .chassis { box-shadow: none; border: 0; max-width: none; margin: 0; }
+  .nameplate { background: none; color: #000; border-bottom: 2px solid #000; }
+  .nameplate__id i, .serial, .lamp-set { color: #444; }
+  .viewfinder, .tape-housing, .btn, .switch, .tabs, td.act, .screw { display: none; }
+  .sheet, .plate { box-shadow: none; border: 1px solid #999; }
+  .stamp { mix-blend-mode: normal; }
+}
