@@ -1,10 +1,7 @@
 # Minor Works
 
 A small site for the builds that were too little to justify a repository of
-their own, and too good to lose: weekend circuits, one-file scripts, sensors
-taped to a breadboard at 2am. The larger work lives in the main portfolio. This
-is the margin.
-
+their own, but important in their own way as foundational projects which led the way to bigger ones. 
 By Mohammed Huzaifa ([ashuzaifa](https://github.com/ashuzaifa)).
 
 ## What is in it
